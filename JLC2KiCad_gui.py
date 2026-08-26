@@ -294,44 +294,41 @@ class JLC2KiCad_GUI(pcbnew.ActionPlugin):
 
     def PasteFootprint(self):
         # Footprint string pasting based on KiBuzzard https://github.com/gregdavill/KiBuzzard/blob/main/KiBuzzard/plugin.py
-        if self.IsVersion(['5.99','6.', '7.']):
-            if self._pcbnew_frame is not None:
-                # Set focus to main window and attempt to execute a Paste operation 
+        if self._pcbnew_frame is not None:
+            # Set focus to main window and attempt to execute a Paste operation 
+            wx.MilliSleep(100)
+            try:
+                # Send ESC key before Ctrl+V to close other activities
+                esc_evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+                esc_evt.SetKeyCode(wx.WXK_ESCAPE)
+                self.logger.log(logging.INFO, "Using wx.KeyEvent for ESC key")
+
+                wnd = [i for i in self._pcbnew_frame.Children if i.ClassName == 'wxWindow'][0]
+                self.logger.log(logging.INFO, "Injecting ESC event: {} into window: {}".format(esc_evt, wnd))
+                wx.PostEvent(wnd, esc_evt)
+
+                # Simulate pressing Ctrl+V to paste footprint
+                v_evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
+                v_evt.SetKeyCode(ord('V'))
+                v_evt.SetControlDown(True)
+                self.logger.log(logging.INFO, "Using wx.KeyEvent for Ctrl+V")
+
+                self.logger.log(logging.INFO, "Injecting Ctrl+V event: {} into window: {}".format(v_evt, wnd))
+                wx.PostEvent(wnd, v_evt)
+
+            except:
+                # Likely on Linux with old wx python support :(
+                self.logger.log(logging.INFO, "Using wx.UIActionSimulator for paste")
+                keyinput = wx.UIActionSimulator()
+                self._pcbnew_frame.Raise()
+                self._pcbnew_frame.SetFocus()
                 wx.MilliSleep(100)
-                try:
-                    # Send ESC key before Ctrl+V to close other activities
-                    esc_evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
-                    esc_evt.SetKeyCode(wx.WXK_ESCAPE)
-                    self.logger.log(logging.INFO, "Using wx.KeyEvent for ESC key")
-
-                    wnd = [i for i in self._pcbnew_frame.Children if i.ClassName == 'wxWindow'][0]
-                    self.logger.log(logging.INFO, "Injecting ESC event: {} into window: {}".format(esc_evt, wnd))
-                    wx.PostEvent(wnd, esc_evt)
-
-                    # Simulate pressing Ctrl+V to paste footprint
-                    v_evt = wx.KeyEvent(wx.wxEVT_CHAR_HOOK)
-                    v_evt.SetKeyCode(ord('V'))
-                    v_evt.SetControlDown(True)
-                    self.logger.log(logging.INFO, "Using wx.KeyEvent for Ctrl+V")
-
-                    self.logger.log(logging.INFO, "Injecting Ctrl+V event: {} into window: {}".format(v_evt, wnd))
-                    wx.PostEvent(wnd, v_evt)
-
-                except:
-                    # Likely on Linux with old wx python support :(
-                    self.logger.log(logging.INFO, "Using wx.UIActionSimulator for paste")
-                    keyinput = wx.UIActionSimulator()
-                    self._pcbnew_frame.Raise()
-                    self._pcbnew_frame.SetFocus()
-                    wx.MilliSleep(100)
-                    wx.Yield()
-                    # Press and release CTRL + V
-                    keyinput.Char(ord("V"), wx.MOD_CONTROL)
-                    wx.MilliSleep(100)
-            else:
-                self.logger.log(logging.ERROR, "No pcbnew window found")
+                wx.Yield()
+                # Press and release CTRL + V
+                keyinput.Char(ord("V"), wx.MOD_CONTROL)
+                wx.MilliSleep(100)
         else:
-            self.logger.log(logging.ERROR, "Version check failed \"{}\" not in version list".format(self.kicad_build_version))
+            self.logger.log(logging.ERROR, "No pcbnew window found")
 
     def Run(self):
         board: pcbnew.BOARD = pcbnew.GetBoard()
